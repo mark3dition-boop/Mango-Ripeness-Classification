@@ -168,23 +168,24 @@ y_pred = svm_model.predict(X_test)
 
 
 # Evaluation
-# from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
+from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
 
-# accuracy = accuracy_score(y_test, y_pred)
-# recall = recall_score(y_test, y_pred, average="weighted")
-# precision = precision_score(y_test, y_pred, average="weighted")
-# f1 = f1_score(y_test, y_pred, average="weighted")
+accuracy = accuracy_score(y_test, y_pred)
+recall = recall_score(y_test, y_pred, average="weighted")
+precision = precision_score(y_test, y_pred, average="weighted")
+f1 = f1_score(y_test, y_pred, average="weighted")
 
-# print("Accuracy:", accuracy)
-# print("Recall:", recall)
-# print("Precision:", precision)
-# print("F1-Score:", f1)
+print("Accuracy:", accuracy)
+print("Recall:", recall)
+print("Precision:", precision)
+print("F1-Score:", f1)
 
 print("----------------------------------------------------------------")
 
-# from sklearn.metrics import classification_report
 
-# print(classification_report(y_test, y_pred))
+from sklearn.metrics import classification_report
+
+print(classification_report(y_test, y_pred))
 
 
 
