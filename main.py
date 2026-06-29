@@ -1,6 +1,13 @@
 import cv2
 import numpy as np
 import os
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
+import pickle
+
+model_path_aug = 'aug.pkl'
+model_path_default = 'default.pkl'
 
 
 def augment_image(image):
@@ -113,83 +120,96 @@ def assign(X, container):
 train_dir = "Dataset/Train"
 test_dir = "Dataset/Test"
 
-X_train = []
-y_train = []
+def load_or_train(isAug):
 
-X_test = []
-y_test = []
+    model_path = "aug.pkl" if isAug else "default.pkl"
 
-# augment=True hanya untuk train, test TIDAK diaugmentasi
-import_data(train_dir, X_train, y_train, augment=True)
-import_data(test_dir, X_test, y_test, augment=False)
+    # Jika model sudah ada, langsung load
+    if os.path.exists(model_path):
+        print(f"Loading model from {model_path}...")
+        with open(model_path, "rb") as file:
+            return pickle.load(file)
 
-print(f"Jumlah data train (setelah augmentasi): {len(X_train)}")
-print(f"Jumlah data test: {len(X_test)}")
+    print("Model not found. Training new model...")
+
+    # =============================
+    # Load Dataset
+    # =============================
+    X_train = []
+    y_train = []
+
+    X_test = []
+    y_test = []
+
+    import_data(train_dir, X_train, y_train, augment=isAug)
+    import_data(test_dir, X_test, y_test, augment=False)
+
+    # =============================
+    # Feature Extraction
+    # =============================
+    X_train_features = []
+    X_test_features = []
+
+    assign(X_train, X_train_features)
+    assign(X_test, X_test_features)
+
+    X_train = np.array(X_train_features)
+    y_train = np.array(y_train)
+
+    X_test = np.array(X_test_features)
+    y_test = np.array(y_test)
+
+    # =============================
+    # Scaling
+    # =============================
+    scaler = StandardScaler()
+
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    # =============================
+    # Train
+    # =============================
+    svm_model = SVC(
+        kernel="rbf",
+        C=10,
+        gamma="scale"
+    )
+
+    svm_model.fit(X_train, y_train)
+
+    # =============================
+    # Evaluation
+    # =============================
+    y_pred = svm_model.predict(X_test)
+
+    print("Accuracy :", accuracy_score(y_test, y_pred))
+    print("Recall   :", recall_score(y_test, y_pred, average="weighted"))
+    print("Precision:", precision_score(y_test, y_pred, average="weighted"))
+    print("F1-Score :", f1_score(y_test, y_pred, average="weighted"))
 
 
-X_train_features = []
-X_test_features = []
+    # =============================
+    # Save Model
+    # =============================
+    with open(model_path, "wb") as file:
+        pickle.dump((svm_model, scaler), file)
 
-assign(X_train, X_train_features)
-assign(X_test, X_test_features)
-
-
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
-
-# Convert data to array
-X_train = np.array(X_train_features)
-y_train = np.array(y_train)
-
-X_test = np.array(X_test_features)
-y_test = np.array(y_test)
-
-# Scale Data
-scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
-X_test = scaler.transform(X_test)
-
-
-# Train Model
-from sklearn.svm import SVC
-
-svm_model = SVC(
-    kernel='rbf',
-    C=10,
-    gamma='scale'
-)
-
-svm_model.fit(X_train, y_train)
-
-
-# Predict
-y_pred = svm_model.predict(X_test)
-
-
-
-# Evaluation
-from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
-
-accuracy = accuracy_score(y_test, y_pred)
-recall = recall_score(y_test, y_pred, average="weighted")
-precision = precision_score(y_test, y_pred, average="weighted")
-f1 = f1_score(y_test, y_pred, average="weighted")
-
-print("Accuracy:", accuracy)
-print("Recall:", recall)
-print("Precision:", precision)
-print("F1-Score:", f1)
-
-print("----------------------------------------------------------------")
-
-
-from sklearn.metrics import classification_report
-
-print(classification_report(y_test, y_pred))
+    return svm_model, scaler
 
 
 
 # Test outside data
+print("--- SVC Model with Augmentation ---")
+svc_aug, scaler_aug = load_or_train(True)
+print("done")
+print("--------------------------------------\n")
+
+print("--- SVC Model without Augmentation ---")
+svc_default, scaler_default = load_or_train(False)
+print("done")
+print("--------------------------------------\n")
+
 path = 'rott.png'
 
 test = cv2.imread(path)
@@ -202,8 +222,8 @@ features = extract_features(test, mask)
 
 features = np.array(features).reshape(1, -1)
 
-features = scaler.transform(features)
+features = scaler_aug.transform(features)
 
-pred = svm_model.predict(features)
+pred = svc_aug.predict(features)
 
 print(f"Prediksi tingkat kematangan", path, ": ", pred)
